@@ -164,24 +164,46 @@ export default function MusicPlayer() {
             {/* Content Area */}
             <div className="flex-1 flex flex-col gap-5 overflow-hidden border-none outline-none">
 
-                {/* Visualized Area or Video Thumbnail */}
-                <div className="relative w-full aspect-video rounded-[32px] overflow-hidden shrink-0 bg-black/40 shadow-xl border-none">
-                    <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                {/* Hidden YouTube Player (Audio Only) */}
+                <div className="hidden-player" style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}>
+                    <YouTube
+                        videoId={currentTrack.videoId}
+                        opts={{
+                            ...youtubeOpts,
+                            height: '1',
+                            width: '1',
+                        }}
+                        onReady={onPlayerReady}
+                        onStateChange={onPlayerStateChange}
+                        onError={onPlayerError}
+                    />
+                </div>
 
-                    <div className="absolute inset-0 z-10">
-                        <YouTube
-                            videoId={currentTrack.videoId}
-                            opts={youtubeOpts}
-                            onReady={onPlayerReady}
-                            onStateChange={onPlayerStateChange}
-                            onError={onPlayerError}
-                            className="w-full h-full"
-                        />
+                {/* Track Cover Display (Replaces Video) */}
+                <div className="relative w-full aspect-video rounded-[32px] overflow-hidden shrink-0 bg-black/40 shadow-xl border border-white/5">
+                    <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+
+                    {/* Atmospheric Background for the cover */}
+                    <div
+                        className="absolute inset-0 z-10 opacity-40 transition-all duration-1000"
+                        style={{
+                            background: `linear-gradient(45deg, ${currentTrack.color}44, transparent)`,
+                            filter: 'blur(40px)'
+                        }}
+                    ></div>
+
+                    <div className="absolute inset-0 flex items-center justify-center z-15">
+                        <div
+                            className="w-16 h-16 rounded-full flex items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 animate-float"
+                            style={{ color: currentTrack.color }}
+                        >
+                            <Music size={32} />
+                        </div>
                     </div>
 
-                    <div className="absolute bottom-4 left-6 z-30 pointer-events-none">
+                    <div className="absolute bottom-6 left-6 z-30 pointer-events-none">
                         <h3 className="text-xl font-black text-white leading-tight">{currentTrack.name}</h3>
-                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">{currentTrack.artist}</p>
+                        <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mt-1">{currentTrack.artist}</p>
                     </div>
                 </div>
 

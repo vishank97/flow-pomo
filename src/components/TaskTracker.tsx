@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, CheckCircle2, Circle, GpSign as DragHandle } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, GripVertical as DragHandle } from 'lucide-react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 
 interface Task {

@@ -164,8 +164,8 @@ export default function MusicPlayer() {
             {/* Content Area */}
             <div className="flex-1 flex flex-col gap-5 overflow-hidden border-none outline-none">
 
-                {/* Hidden YouTube Player (Audio Only) */}
-                <div className="hidden-player" style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}>
+                {/* Hidden YouTube Player (Audio Only) - display:none prevents Arc PiP */}
+                <div className="hidden-player" style={{ display: 'none' }}>
                     <YouTube
                         videoId={currentTrack.videoId}
                         opts={{

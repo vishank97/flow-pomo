@@ -1,121 +1,137 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, CheckCircle2, Circle, GripVertical as DragHandle } from 'lucide-react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import { Plus, X } from "lucide-react";
+import { AnimatePresence, Reorder, motion } from "framer-motion";
 
 interface Task {
-    id: string;
-    text: string;
-    completed: boolean;
+  id: string;
+  text: string;
+  completed: boolean;
 }
 
 export default function TaskTracker() {
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [input, setInput] = useState('');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [input, setInput] = useState("");
+  const [hydrated, setHydrated] = useState(false);
 
-    // Load from local storage
-    useEffect(() => {
-        const saved = localStorage.getItem('flowstate-tasks');
-        if (saved) setTasks(JSON.parse(saved));
-    }, []);
+  useEffect(() => {
+    const saved = localStorage.getItem("flowstate-tasks");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Task[];
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTasks(parsed);
+      } catch {}
+    }
+    setHydrated(true);
+  }, []);
 
-    // Save to local storage
-    useEffect(() => {
-        localStorage.setItem('flowstate-tasks', JSON.stringify(tasks));
-    }, [tasks]);
+  useEffect(() => {
+    if (hydrated) {
+      localStorage.setItem("flowstate-tasks", JSON.stringify(tasks));
+    }
+  }, [tasks, hydrated]);
 
-    const addTask = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim()) return;
-        setTasks([{ id: Date.now().toString(), text: input, completed: false }, ...tasks]);
-        setInput('');
-    };
+  const add = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text) return;
+    setTasks([
+      { id: crypto.randomUUID(), text, completed: false },
+      ...tasks,
+    ]);
+    setInput("");
+  };
 
-    const toggleTask = (id: string) => {
-        setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-    };
-
-    const removeTask = (id: string) => {
-        setTasks(tasks.filter(t => t.id !== id));
-    };
-
-    const completedCount = tasks.filter(t => t.completed).length;
-
-    return (
-        <div className="premium-card p-8 flex flex-col gap-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl glass flex items-center justify-center bg-indigo-500/10 text-indigo-400">
-                        <CheckCircle2 size={20} />
-                    </div>
-                    <h2 className="text-xl font-bold tracking-tight">Today's Focus</h2>
-                </div>
-                <div className="px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5">
-                    {completedCount}/{tasks.length} Done
-                </div>
-            </div>
-
-            {/* Input Form */}
-            <form onSubmit={addTask} className="flex gap-2">
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="What's your focus?"
-                    className="premium-input flex-1"
-                />
-                <button type="submit" className="premium-button px-4">
-                    <Plus size={24} />
-                </button>
-            </form>
-
-            {/* Task List */}
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <Reorder.Group axis="y" values={tasks} onReorder={setTasks} className="flex flex-col gap-3">
-                    <AnimatePresence mode="popLayout" initial={false}>
-                        {tasks.map((task) => (
-                            <Reorder.Item
-                                key={task.id}
-                                value={task}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="group glass p-4 rounded-2xl flex items-center gap-3 cursor-grab active:cursor-grabbing hover:bg-white/[0.04] transition-colors"
-                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
-                            >
-                                <button
-                                    onClick={() => toggleTask(task.id)}
-                                    className={`transition-colors ${task.completed ? 'text-indigo-400' : 'text-slate-600 group-hover:text-slate-400'}`}
-                                >
-                                    {task.completed ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-                                </button>
-
-                                <span className={`flex-1 font-medium transition-all ${task.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>
-                                    {task.text}
-                                </span>
-
-                                <button
-                                    onClick={() => removeTask(task.id)}
-                                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-rose-400 transition-all"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </Reorder.Item>
-                        ))}
-                    </AnimatePresence>
-                </Reorder.Group>
-
-                {tasks.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center gap-4 text-slate-600 opacity-50 py-12">
-                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-current flex items-center justify-center">
-                            <Plus size={24} />
-                        </div>
-                        <p className="text-xs font-bold uppercase tracking-widest">Add your first task</p>
-                    </div>
-                )}
-            </div>
-        </div>
+  const toggle = (id: string) =>
+    setTasks((ts) =>
+      ts.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
     );
+
+  const remove = (id: string) =>
+    setTasks((ts) => ts.filter((t) => t.id !== id));
+
+  const done = tasks.filter((t) => t.completed).length;
+
+  return (
+    <section className="tasks" aria-label="Today’s tasks">
+      <div className="kicker">
+        <span className="kicker__index">02</span>
+        <span className="kicker__dot" />
+        <span className="eyebrow">List</span>
+      </div>
+
+      <div className="tasks__head">
+        <h2 className="tasks__title">Today</h2>
+        <span className="tasks__count">
+          {done} of {tasks.length || "—"}
+        </span>
+      </div>
+
+      <form className="tasks__form" onSubmit={add}>
+        <input
+          className="tasks__input"
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Add a task…"
+          aria-label="Add a task"
+        />
+        <button type="submit" className="tasks__add" aria-label="Add task">
+          <Plus size={16} strokeWidth={1.5} />
+        </button>
+      </form>
+
+      {tasks.length === 0 ? (
+        <p className="tasks__empty">Nothing yet. Add the first thing.</p>
+      ) : (
+        <Reorder.Group
+          axis="y"
+          values={tasks}
+          onReorder={setTasks}
+          as="ul"
+          className="tasks__list"
+        >
+          <AnimatePresence initial={false}>
+            {tasks.map((task) => (
+              <Reorder.Item
+                key={task.id}
+                value={task}
+                as="li"
+                className="task"
+                data-done={task.completed}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                whileDrag={{ scale: 1.01 }}
+              >
+                <button
+                  type="button"
+                  className="task__check"
+                  data-done={task.completed}
+                  onClick={() => toggle(task.id)}
+                  aria-label={
+                    task.completed ? "Mark as not done" : "Mark as done"
+                  }
+                />
+                <motion.span layout className="task__text">
+                  {task.text}
+                </motion.span>
+                <button
+                  type="button"
+                  className="task__del"
+                  onClick={() => remove(task.id)}
+                  aria-label="Delete task"
+                >
+                  <X size={14} strokeWidth={1.5} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </AnimatePresence>
+        </Reorder.Group>
+      )}
+    </section>
+  );
 }

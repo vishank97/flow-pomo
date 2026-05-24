@@ -1,18 +1,31 @@
-import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Space_Grotesk, Manrope } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
+const display = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-outfit",
+  variable: "--ff-display",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const body = Manrope({
+  subsets: ["latin"],
+  variable: "--ff-body",
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "FlowState | Pomodoro & Task Tracker",
-  description: "A premium Pomodoro timer and task tracker designed for deep work and productivity.",
-  keywords: ["pomodoro", "timer", "task tracker", "productivity", "deep work"],
-  authors: [{ name: "FlowState Team" }],
-  viewport: "width=device-width, initial-scale=1",
+  title: "FlowState — Focus timer & notebook",
+  description: "A focus timer, a small list, and a quiet radio. That's all.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#e6dccb",
 };
 
 export default function RootLayout({
@@ -21,10 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={outfit.className}>
-        {children}
-      </body>
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

@@ -24,7 +24,7 @@ interface Track {
 const TRACKS: Track[] = [
   {
     id: "lofi",
-    videoId: "jfKfPfyJRdk",
+    videoId: "rUxyKA_-grg",
     name: "Lofi Study Beats",
     artist: "Lofi Girl",
     type: "Lofi",
@@ -62,6 +62,7 @@ export default function MusicPlayer() {
   const [volume, setVolume] = useState(50);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const playerRef = useRef<{
     playVideo: () => void;
     pauseVideo: () => void;
@@ -82,11 +83,28 @@ export default function MusicPlayer() {
     if (e.data === 1) {
       setIsPlaying(true);
       setIsLoading(false);
+      setErrorMsg(null);
     } else if (e.data === 2) {
       setIsPlaying(false);
     } else if (e.data === 3) {
       setIsLoading(true);
     }
+  };
+
+  const onError: YouTubeProps["onError"] = (e) => {
+    const code = e.data;
+    // 101 / 150: embedding disabled by uploader. 100: not found. 2: bad id. 5: HTML5 error.
+    const blocked = code === 101 || code === 150;
+    setErrorMsg(
+      blocked ? "Embedding disabled — trying next station." : "Stream error — trying next station.",
+    );
+    setIsLoading(false);
+    setIsPlaying(false);
+    // Auto-advance to next track after short pause
+    window.setTimeout(() => {
+      setTrackIdx((i) => (i + 1) % TRACKS.length);
+      setIsLoading(true);
+    }, 1800);
   };
 
   const togglePlay = () => {
@@ -99,6 +117,7 @@ export default function MusicPlayer() {
     if (i === trackIdx) return;
     setTrackIdx(i);
     setIsLoading(true);
+    setErrorMsg(null);
   };
 
   const skip = (dir: 1 | -1) => {
@@ -130,7 +149,7 @@ export default function MusicPlayer() {
           opts={opts}
           onReady={onReady}
           onStateChange={onStateChange}
-          onError={() => setIsLoading(false)}
+          onError={onError}
         />
       </div>
 
@@ -150,7 +169,13 @@ export default function MusicPlayer() {
       <div className="radio__meta">
         <span className="radio__now">
           <span className="radio__pulse" />
-          {isLoading ? "Tuning" : isPlaying ? "On air" : "Standby"}
+          {errorMsg
+            ? errorMsg
+            : isLoading
+              ? "Tuning"
+              : isPlaying
+                ? "On air"
+                : "Standby"}
         </span>
         <span className="radio__title">{track.name}</span>
         <span className="radio__artist">{track.artist}</span>

@@ -24,9 +24,9 @@ interface Track {
 const TRACKS: Track[] = [
   {
     id: "lofi",
-    videoId: "rUxyKA_-grg",
+    videoId: "7NOSDKb0HlU",
     name: "Lofi Study Beats",
-    artist: "Lofi Girl",
+    artist: "Chillhop Music",
     type: "Lofi",
     tint: "oklch(70% 0.10 240)",
   },

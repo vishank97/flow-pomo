@@ -212,6 +212,97 @@ input, textarea { background: none; border: none; font: inherit; color: inherit;
   color: var(--paper);
 }
 
+.timer__duration {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.timer__picks {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.pick {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink-3);
+  padding: 0.375rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.pick:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--paper-3);
+}
+
+.pick[data-active="true"] {
+  color: var(--ink);
+  background: var(--paper-3);
+  border-color: var(--rule);
+}
+
+.pick:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timer__stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper-3);
+  margin-left: auto;
+}
+
+.timer__stepper button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ink-2);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.timer__stepper button:hover:not(:disabled) {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.timer__stepper button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.timer__stepper-value {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .timer__stepper {
+    margin-left: 0;
+  }
+}
+
 .timer__stage {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

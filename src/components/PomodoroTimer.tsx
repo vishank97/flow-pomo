@@ -1,48 +1,106 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import { Play, Pause, RotateCcw, Minus, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 
 type Mode = "pomodoro" | "shortBreak" | "longBreak";
 
-const MODES: Record<
-  Mode,
-  { label: string; headline: string; time: number; copy: string }
-> = {
+const MODE_META: Record<Mode, { label: string; copy: string }> = {
   pomodoro: {
     label: "Focus",
-    headline: "Twenty-five minutes.",
-    time: 25 * 60,
     copy: "Put the phone face down. Pick the one task that matters. Begin.",
   },
   shortBreak: {
     label: "Pause",
-    headline: "Five minutes off.",
-    time: 5 * 60,
     copy: "Stand up. Walk. Look at something further than a screen.",
   },
   longBreak: {
     label: "Rest",
-    headline: "A proper break.",
-    time: 15 * 60,
-    copy: "Fifteen minutes away. The work will be here when you return.",
+    copy: "Step away from the work. It will be here when you come back.",
   },
 };
 
+const DEFAULT_DURATIONS: Record<Mode, number> = {
+  pomodoro: 25 * 60,
+  shortBreak: 5 * 60,
+  longBreak: 15 * 60,
+};
+
+const QUICK_PICKS: Record<Mode, number[]> = {
+  pomodoro: [15, 25, 45, 60, 90],
+  shortBreak: [3, 5, 10],
+  longBreak: [10, 15, 20, 30],
+};
+
+const MIN_MINUTES = 1;
+const MAX_MINUTES = 180;
+
+type BadgeNav = Navigator & {
+  setAppBadge?: (n: number) => Promise<void>;
+  clearAppBadge?: () => Promise<void>;
+};
+
+const formatTime = (s: number) =>
+  `${Math.floor(s / 60)
+    .toString()
+    .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+
 export default function PomodoroTimer() {
   const [mode, setMode] = useState<Mode>("pomodoro");
-  const [timeLeft, setTimeLeft] = useState(MODES.pomodoro.time);
+  const [durations, setDurations] =
+    useState<Record<Mode, number>>(DEFAULT_DURATIONS);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_DURATIONS.pomodoro);
   const [isActive, setIsActive] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Hydrate durations from localStorage
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    try {
+      const saved = localStorage.getItem("flowstate-durations");
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<Record<Mode, number>>;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setDurations((prev) => ({ ...prev, ...parsed }));
+        const targetMode: Mode = "pomodoro";
+        if (parsed[targetMode]) {
+          setTimeLeft(parsed[targetMode]!);
+        }
+      }
+    } catch {}
+    setHydrated(true);
   }, []);
 
+  // Persist durations
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem("flowstate-durations", JSON.stringify(durations));
+  }, [durations, hydrated]);
+
+  // Notification permission — deferred so it never blocks the first paint.
+  // requestPermission() can synchronously stall the main thread while the
+  // browser prepares the permission prompt UI; scheduling it after paint
+  // keeps INP healthy.
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+    const id = window.setTimeout(() => {
+      Notification.requestPermission().catch(() => {});
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  // When duration for current mode changes and timer not active, sync timeLeft
+  useEffect(() => {
+    if (!isActive) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTimeLeft(durations[mode]);
+    }
+  }, [durations, mode, isActive]);
+
+  // Countdown
   useEffect(() => {
     if (!isActive) return;
     const interval = setInterval(() => {
@@ -58,13 +116,17 @@ export default function PomodoroTimer() {
         audioRef.current = audio;
         audio.play().catch(() => {});
 
-        if ("Notification" in window && Notification.permission === "granted") {
+        if (
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
           new Notification("FlowState", {
             body:
               mode === "pomodoro"
-                ? "Session complete. Step away."
-                : "Pause complete. Return when ready.",
-            icon: "/favicon.ico",
+                ? "Focus session complete. Step away."
+                : "Break complete. Back to work when you're ready.",
+            icon: "/icon-192.png",
+            tag: "flowstate-session",
           });
         }
 
@@ -84,30 +146,63 @@ export default function PomodoroTimer() {
     return () => clearInterval(interval);
   }, [isActive, mode]);
 
+  // Tab title — closest browser equivalent to a menu-bar timer
+  useEffect(() => {
+    const base = "FlowState — Focus timer";
+    if (isActive) {
+      document.title = `${formatTime(timeLeft)} · ${MODE_META[mode].label} — FlowState`;
+    } else {
+      document.title = base;
+    }
+    return () => {
+      document.title = base;
+    };
+  }, [timeLeft, isActive, mode]);
+
+  // Dock / app icon badge (PWA-installed apps; harmless no-op elsewhere)
+  useEffect(() => {
+    const nav = navigator as BadgeNav;
+    if (isActive && nav.setAppBadge) {
+      nav.setAppBadge(Math.max(1, Math.ceil(timeLeft / 60))).catch(() => {});
+    } else if (nav.clearAppBadge) {
+      nav.clearAppBadge().catch(() => {});
+    }
+  }, [timeLeft, isActive]);
+
   const switchMode = (m: Mode) => {
     setMode(m);
-    setTimeLeft(MODES[m].time);
+    setTimeLeft(durations[m]);
     setIsActive(false);
   };
 
   const toggle = () => {
     setIsActive((a) => !a);
+    // Defer permission prompt off the click's critical path so it cannot
+    // block the next paint (INP). Fire only if still default after commit.
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
+      window.setTimeout(() => {
+        if (Notification.permission === "default") {
+          Notification.requestPermission().catch(() => {});
+        }
+      }, 0);
     }
   };
 
   const reset = () => {
-    setTimeLeft(MODES[mode].time);
+    setTimeLeft(durations[mode]);
     setIsActive(false);
   };
 
-  const format = (s: number) =>
-    `${Math.floor(s / 60)
-      .toString()
-      .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const setMinutes = (m: number) => {
+    const clamped = Math.max(MIN_MINUTES, Math.min(MAX_MINUTES, m));
+    const sec = clamped * 60;
+    setDurations((d) => ({ ...d, [mode]: sec }));
+    if (!isActive) setTimeLeft(sec);
+  };
 
-  const progress = timeLeft / MODES[mode].time;
+  const currentMin = Math.round(durations[mode] / 60);
+
+  const progress = timeLeft / durations[mode];
   const C = 2 * Math.PI * 120;
 
   return (
@@ -119,7 +214,7 @@ export default function PomodoroTimer() {
       </div>
 
       <div className="timer__modes" role="tablist">
-        {(Object.keys(MODES) as Mode[]).map((m) => (
+        {(Object.keys(MODE_META) as Mode[]).map((m) => (
           <button
             key={m}
             role="tab"
@@ -128,9 +223,46 @@ export default function PomodoroTimer() {
             className="timer__mode"
             onClick={() => switchMode(m)}
           >
-            {MODES[m].label}
+            {MODE_META[m].label}
           </button>
         ))}
+      </div>
+
+      <div className="timer__duration" aria-label="Session length">
+        <div className="timer__picks">
+          {QUICK_PICKS[mode].map((m) => (
+            <button
+              key={m}
+              type="button"
+              className="pick"
+              data-active={m === currentMin}
+              onClick={() => setMinutes(m)}
+              disabled={isActive}
+              aria-pressed={m === currentMin}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <div className="timer__stepper" role="group" aria-label="Custom length">
+          <button
+            type="button"
+            onClick={() => setMinutes(currentMin - 5)}
+            disabled={isActive || currentMin <= MIN_MINUTES}
+            aria-label="Decrease length by 5 minutes"
+          >
+            <Minus size={12} strokeWidth={2} />
+          </button>
+          <span className="timer__stepper-value">{currentMin}m</span>
+          <button
+            type="button"
+            onClick={() => setMinutes(currentMin + 5)}
+            disabled={isActive || currentMin >= MAX_MINUTES}
+            aria-label="Increase length by 5 minutes"
+          >
+            <Plus size={12} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       <div className="timer__stage">
@@ -167,7 +299,7 @@ export default function PomodoroTimer() {
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                 className="timer__digits"
               >
-                {format(timeLeft)}
+                {formatTime(timeLeft)}
               </motion.div>
             </AnimatePresence>
             <span className="timer__label">
@@ -177,8 +309,10 @@ export default function PomodoroTimer() {
         </div>
 
         <div className="timer__sidebar">
-          <h2 className="timer__title">{MODES[mode].headline}</h2>
-          <p className="timer__caption">{MODES[mode].copy}</p>
+          <h2 className="timer__title">
+            {currentMin} {currentMin === 1 ? "minute" : "minutes"}.
+          </h2>
+          <p className="timer__caption">{MODE_META[mode].copy}</p>
 
           <div className="timer__controls">
             <button

@@ -79,11 +79,17 @@ export default function PomodoroTimer() {
     localStorage.setItem("flowstate-durations", JSON.stringify(durations));
   }, [durations, hydrated]);
 
-  // Notification permission on mount
+  // Notification permission — deferred so it never blocks the first paint.
+  // requestPermission() can synchronously stall the main thread while the
+  // browser prepares the permission prompt UI; scheduling it after paint
+  // keeps INP healthy.
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "default") return;
+    const id = window.setTimeout(() => {
+      Notification.requestPermission().catch(() => {});
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   // When duration for current mode changes and timer not active, sync timeLeft
@@ -171,8 +177,14 @@ export default function PomodoroTimer() {
 
   const toggle = () => {
     setIsActive((a) => !a);
+    // Defer permission prompt off the click's critical path so it cannot
+    // block the next paint (INP). Fire only if still default after commit.
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
+      window.setTimeout(() => {
+        if (Notification.permission === "default") {
+          Notification.requestPermission().catch(() => {});
+        }
+      }, 0);
     }
   };
 
